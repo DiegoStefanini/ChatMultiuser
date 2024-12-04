@@ -10,11 +10,11 @@ import data.Packet;
 public class ClientMain {
 
     private static final int MAX_TRY = 3;
-
+    private static String NomeClient = null;
     public static void attendi(long ms) {
         try {
             Thread.sleep(ms);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
         }
     }
 
@@ -22,12 +22,10 @@ public class ClientMain {
         // Configura l'indirizzo IP e la porta del server
         String serverAddress = "127.0.0.1"; // IP del server (localhost)
         int port = 12345; // Porta del server
-        int scelta;
         Socket link = null;
-        int i = 0;
-        boolean avanti = false;
         Gson gson = new Gson(); // String json = gson.toJson(packet); Packet deserializedPacket = gson.fromJson(json, Packet.class)
 
+        int i = 0;
         while( link == null && i < MAX_TRY ) {
             try {
                 // Crea una connessione al server
@@ -50,7 +48,8 @@ public class ClientMain {
             BufferedReader RiceviDalServer = new BufferedReader(new InputStreamReader(link.getInputStream()));
 
             Scanner scanner = new Scanner(System.in);
-
+            boolean avanti = false;
+            int scelta;
             while (!avanti) {
                 System.out.println("1 - Login");
                 System.out.println("2 - Register");
@@ -58,21 +57,39 @@ public class ClientMain {
                 Packet PacketRicevuto = null;
                 scelta = scanner.nextInt();
                 scanner.nextLine(); // pulisco buffer (non so perche ma sennò non funziona)
+                int tentativi = 0;
+                String reins = "";
                 switch (scelta) {
                     case 1:
+                        // TROVIAMO UN MODO DI FARE CASE 1 E 2 IN UNA FUNZIONE, DATO CHE CAMBIA POCHISSIME COSE
                         System.out.println("Hai scelto Login.");
-                        avanti = true;
-                        // Implementa la logica del login
-                        break;
-
-                    case 2:
-                        System.out.println("Hai scelto Register.");
-                        int tentativi = 0;
-                        String reins = "";
                         while (PacketRicevuto == null || PacketRicevuto.getError()) {
                             if (tentativi > 0) {
                                 reins = "di nuovo";
                             }
+                            // DA AGGIUNGERE "PREMI 0 PER ANDARE INDIETRO" !!!
+                            System.out.println("Inserisci "+reins+" il nome utente: ");
+                            String nome = scanner.nextLine();
+                            System.out.println("Inserisci "+reins+" la tua password: ");
+                            String password = scanner.nextLine();
+                            Packet DaInviareAlServer = new Packet("LOGIN", "", nome, password, false);
+                            String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                            MandaAlServer.println(json);  // mando al server
+                            json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
+                            PacketRicevuto = gson.fromJson(json, Packet.class);
+                            System.out.println(PacketRicevuto.getContenuto());
+                            attendi(2000);
+                            tentativi++;
+                        }
+                        NomeClient = PacketRicevuto.getDestinatario();
+                        avanti = true;
+                        break;
+                    case 2:
+                        while (PacketRicevuto == null || PacketRicevuto.getError()) {
+                            if (tentativi > 0) {
+                                reins = "di nuovo";
+                            }
+                            // DA AGGIUNGERE "PREMI 0 PER ANDARE INDIETRO" !!!
                             System.out.println("Inserisci "+reins+" il nome utente: ");
                             String nome = scanner.nextLine();
                             System.out.println("Inserisci "+reins+" la tua password: ");
@@ -88,7 +105,6 @@ public class ClientMain {
                             tentativi++;
                         }
                         avanti = true;
-                        // Implementa la logica della registrazione
                         break;
 
                     case 0:

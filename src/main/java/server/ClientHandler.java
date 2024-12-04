@@ -36,8 +36,21 @@ class ClientHandler implements Runnable {
     public static void attendi(long ms) {
         try {
             Thread.sleep(ms);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
+        }
+    }
+    private static boolean checkCredenziali(Connection connection, String username, String password) {
+        String query = "SELECT Nome FROM utenti WHERE Password = ? AND Nome = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, password);
+            preparedStatement.setString(2, username);
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            return resultSet.next();  // Se c'è un risultato, le credenziali sono corrette
+        } catch (SQLException e) {
+            System.out.println("Errore durante il login!");
             e.printStackTrace();
+            return false;
         }
     }
     private static boolean userExist(Connection connection, String username) {
@@ -57,7 +70,7 @@ class ClientHandler implements Runnable {
         return false;  // Return false if the user does not exist or in case of an error
     }
 
-    public static boolean addUser(Connection connection, String username, String password) {
+    private static boolean addUser(Connection connection, String username, String password) {
         if (userExist(connection, username)) {
             return false;
         }
@@ -94,19 +107,24 @@ class ClientHandler implements Runnable {
                 String json = RiceviDalClient.readLine(); // Richiesta bloccante
 
                 PacketRicevuto = gson.fromJson(json, Packet.class); // converte la stringa che gli è arrivata in Packet
-
+                Packet PacketDaInviare = null;
                 if ("REGISTRA".equals(PacketRicevuto.getHeader())) { // se REGISTRA == PacketRicevuto.getHeader();
-                    Packet PacketDaInviare;
                     if (!addUser(connessione, PacketRicevuto.getMittente(), PacketRicevuto.getContenuto())) {
                         PacketDaInviare = new Packet("NOTIFICATION", "","", "L'utente che hai scelto esiste già", true);
                     } else {
                         PacketDaInviare = new Packet("NOTIFICATION", "","", "Utente creato con successo", false);
                     }
-                    json = gson.toJson(PacketDaInviare);
-                    InviaAlClient.println(json);
-                } else if ("LOGIN".equals(PacketRicevuto.getHeader())) {
 
+                } else if ("LOGIN".equals(PacketRicevuto.getHeader())) {
+                    String Username = PacketRicevuto.getMittente();
+                    if (checkCredenziali(connessione,Username, PacketRicevuto.getContenuto())) {
+                        PacketDaInviare = new Packet("NOTIFICATION", Username,"", "Hai effettuato l'accesso !", false);
+                    } else {
+                        PacketDaInviare = new Packet("NOTIFICATION", "","", "Le credenziali non sono corrette", true);
+                    }
                 }
+                json = gson.toJson(PacketDaInviare);
+                InviaAlClient.println(json);
             }
         }catch(IOException ex) {
             ex.printStackTrace();
