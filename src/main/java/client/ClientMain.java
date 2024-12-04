@@ -1,12 +1,7 @@
 package client;
-
-import com.sun.source.tree.BindingPatternTree;
-
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
@@ -27,12 +22,10 @@ public class ClientMain {
         // Configura l'indirizzo IP e la porta del server
         String serverAddress = "127.0.0.1"; // IP del server (localhost)
         int port = 12345; // Porta del server
-        String input;
         int scelta;
-        int selezione;
         Socket link = null;
         int i = 0;
-        Boolean avanti = false;
+        boolean avanti = false;
         Gson gson = new Gson(); // String json = gson.toJson(packet); Packet deserializedPacket = gson.fromJson(json, Packet.class)
 
         while( link == null && i < MAX_TRY ) {
@@ -92,6 +85,7 @@ public class ClientMain {
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
                             attendi(2000);
+                            tentativi++;
                         }
                         avanti = true;
                         // Implementa la logica della registrazione
