@@ -10,7 +10,8 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
-
+import com.google.gson.Gson;
+import data.Packet;
 public class ClientMain {
 
     private static final int MAX_TRY = 3;
@@ -24,12 +25,15 @@ public class ClientMain {
 
     public static void main(String[] args) {
         // Configura l'indirizzo IP e la porta del server
-        String serverAddress = "127.0.01"; // IP del server (localhost)
+        String serverAddress = "127.0.0.1"; // IP del server (localhost)
         int port = 12345; // Porta del server
         String input;
+        int scelta;
         int selezione;
         Socket link = null;
         int i = 0;
+        Boolean avanti = false;
+        Gson gson = new Gson(); // String json = gson.toJson(packet); Packet deserializedPacket = gson.fromJson(json, Packet.class)
 
         while( link == null && i < MAX_TRY ) {
             try {
@@ -49,38 +53,59 @@ public class ClientMain {
         }
 
         try {
+            PrintWriter MandaAlServer = new PrintWriter(link.getOutputStream(), true);
+            BufferedReader RiceviDalServer = new BufferedReader(new InputStreamReader(link.getInputStream()));
 
-            // Ottiene l'output stream per inviare dati
-            OutputStream out = link.getOutputStream();
-
-            // Ottiene l'output stream per ricevere dati
-            InputStream in = link.getInputStream();
-
-            // Usa un PrintWriter per inviare RIGHE di testo al server
-            PrintWriter writer = new PrintWriter(out, true);
-            // Usa un BufferReader per leggere RIGHE di testo al server
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
             Scanner scanner = new Scanner(System.in);
-            System.out.println("Inserisci il tuo nome: ");
-            input = scanner.nextLine();
-            // invio il nome al server
-            writer.println(input);
-            Thread attendi = new Thread(new AttendiRichieste());
-            attendi.start();
-            System.out.println("Premi 1 per chiedere il collegamento a qualcuno");
-            System.out.println("Premi 2 per vedere chi è online");
-            selezione = scanner.nextInt();
 
+            while (!avanti) {
+                System.out.println("1 - Login");
+                System.out.println("2 - Register");
+                System.out.println("0 - Exit");
+                Packet PacketRicevuto = null;
+                scelta = scanner.nextInt();
+                scanner.nextLine(); // pulisco buffer (non so perche ma sennò non funziona)
+                switch (scelta) {
+                    case 1:
+                        System.out.println("Hai scelto Login.");
+                        avanti = true;
+                        // Implementa la logica del login
+                        break;
 
-            if (selezione == 1) {
-                System.out.print("Inserisci il nome con cui vuoi chattare: ");
-                input = scanner.nextLine();
-                // invio il nome con cui voglio chattare al server
-                writer.println(input);
-                writer.println();
-                System.out.println("Attendi che l'altro accetti la connessione");
-            } else if (selezione == 2) {
-                System.out.println("Work in progress...");
+                    case 2:
+                        System.out.println("Hai scelto Register.");
+                        int tentativi = 0;
+                        String reins = "";
+                        while (PacketRicevuto == null || PacketRicevuto.getError()) {
+                            if (tentativi > 0) {
+                                reins = "di nuovo";
+                            }
+                            System.out.println("Inserisci "+reins+" il nome utente: ");
+                            String nome = scanner.nextLine();
+                            System.out.println("Inserisci "+reins+" la tua password: ");
+                            String password = scanner.nextLine();
+                            // DA AGGIUNGERE CONTROLLO SE NON INSERISCE VUOTO !!!
+                            Packet DaInviareAlServer = new Packet("REGISTRA", "", nome, password, false);
+                            String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                            MandaAlServer.println(json);  // mando al server
+                            json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
+                            PacketRicevuto = gson.fromJson(json, Packet.class);
+                            System.out.println(PacketRicevuto.getContenuto());
+                            attendi(2000);
+                        }
+                        avanti = true;
+                        // Implementa la logica della registrazione
+                        break;
+
+                    case 0:
+                        System.out.println("Uscita dal programma.");
+                        avanti = true;
+                        break;
+
+                    default:
+                        System.out.println("Scelta non valida. Inserisci 1, 2 o 0.");
+                        break;
+                }
             }
         } catch (Exception e) {
             // Gestisce eventuali errori

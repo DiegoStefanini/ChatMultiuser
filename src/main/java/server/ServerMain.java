@@ -34,33 +34,14 @@ public class ServerMain {
         }
         return connection;
     }
-    public static void addUser(Connection connection, String username, String password) {
-        String query = "INSERT INTO utenti (Nome, Password) VALUES (?, ?)";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, username);  // Primo parametro: username
-            preparedStatement.setString(2, password);  // Secondo parametro: password
 
-            int rowsInserted = preparedStatement.executeUpdate();
-            if (rowsInserted > 0) {
-                System.out.println("Utente aggiunto con successo!");
-            } else {
-                System.out.println("Nessuna riga inserita.");
-            }
-        } catch (SQLException e) {
-            System.out.println("Errore durante l'inserimento dell'utente!");
-            e.printStackTrace();
-        }
-    }
 
     public static void main(String[] args) {
         int port = 12345; // Porta su cui il server ascolta
         GestoreClients gestore = new GestoreClients();
         int index;
         Connection connessione = getConnection();
-        if (connessione != null) {
-            // Esempio di utilizzo: aggiunta di un utente
-            addUser(connessione, "mario", "password123");
-        }
+
         try {
             ServerSocket serverSocket = new ServerSocket(port);
             System.out.println("Server avviato. In attesa di connessioni...");
@@ -70,7 +51,7 @@ public class ServerMain {
                 Socket client = serverSocket.accept();
                 System.out.println("Nuovo client connesso.");
                 index = gestore.inc(client);
-                Thread handler = new Thread(new ClientHandler(client,gestore, index));
+                Thread handler = new Thread(new ClientHandler(client,gestore, index, connessione));
                 handler.start();
             }
 

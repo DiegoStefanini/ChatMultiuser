@@ -1,21 +1,28 @@
 package server;
-import server.ServerMain;
-
+import data.Packet;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import com.google.gson.Gson;
 
 class ClientHandler implements Runnable {
     //attributi
     Socket link;
     GestoreClients gestore;
     int MioIndice;
-    public ClientHandler(Socket s, GestoreClients v, int z) {
+    Connection connessione;
+    public ClientHandler(Socket s, GestoreClients v, int z, Connection connessione) {
         this.link = s;
         this.gestore = v;
         this.MioIndice = z;
+        this.connessione = connessione;
     }
 
     public void cleanup(int index) {
@@ -30,22 +37,77 @@ class ClientHandler implements Runnable {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+    private static boolean userExist(Connection connection, String username) {
+        String query = "SELECT COUNT(*) FROM utenti WHERE Nome = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, username);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                int count = resultSet.getInt(1);
+                return count > 0;  // If count > 0, the user exists
+            }
+        } catch (SQLException e) {
+            System.out.println("Errore durante il check se l'utente esiste!");
+            e.printStackTrace();
+        }
+        return false;  // Return false if the user does not exist or in case of an error
+    }
+
+    public static boolean addUser(Connection connection, String username, String password) {
+        if (userExist(connection, username)) {
+            return false;
+        }
+        String query = "INSERT INTO utenti (Nome, Password) VALUES (?, ?)";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, username);  // Primo parametro: username
+            preparedStatement.setString(2, password);  // Secondo parametro: password
+
+            int rowsInserted = preparedStatement.executeUpdate();
+            if (rowsInserted > 0) {
+                System.out.println("Utente aggiunto con successo!");
+                return true;
+            } else {
+                System.out.println("Nessuna riga inserita.");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.out.println("Errore durante l'inserimento dell'utente!");
+            e.printStackTrace();
+            return false;
         }
     }
 
-
     public void run() {
-        BufferedReader reader = null;
-        PrintWriter writer = null;
-        String message = null;
-        String nome = null;
-        String VuoleChattareCon = null;
+        BufferedReader RiceviDalClient;
+        PrintWriter InviaAlClient;
         try {
-            // RICEVE MESSAGGI DAL CLIENT
-            reader = new BufferedReader(new InputStreamReader(link.getInputStream()));
 
-            // INVIA MESSAGGI AL CLIENT
-            writer = new PrintWriter(link.getOutputStream(), true);
+            RiceviDalClient = new BufferedReader(new InputStreamReader(link.getInputStream())); // RICEVE MESSAGGI DAL CLIENT
+            InviaAlClient = new PrintWriter(link.getOutputStream(), true); // INVIA MESSAGGI AL CLIENT
+            Gson gson = new Gson(); // Crea istanza di gson
+            Packet PacketRicevuto = null;
+            while (PacketRicevuto == null || !"LOGOUT".equals(PacketRicevuto.getHeader())) {//  da cambiare questa condizione, non va bene, troviamo un altro modo
+                String json = RiceviDalClient.readLine(); // Richiesta bloccante
+
+                PacketRicevuto = gson.fromJson(json, Packet.class); // converte la stringa che gli è arrivata in Packet
+
+                if ("REGISTRA".equals(PacketRicevuto.getHeader())) { // se REGISTRA == PacketRicevuto.getHeader();
+                    Packet PacketDaInviare;
+                    if (!addUser(connessione, PacketRicevuto.getMittente(), PacketRicevuto.getContenuto())) {
+                        PacketDaInviare = new Packet("NOTIFICATION", "","", "L'utente che hai scelto esiste già", true);
+                    } else {
+                        PacketDaInviare = new Packet("NOTIFICATION", "","", "Utente creato con successo", false);
+                    }
+                    json = gson.toJson(PacketDaInviare);
+                    InviaAlClient.println(json);
+                } else if ("LOGIN".equals(PacketRicevuto.getHeader())) {
+
+                }
+            }
         }catch(IOException ex) {
             ex.printStackTrace();
             System.out.println("Client died too early, cleaning up the mess!");
@@ -53,43 +115,8 @@ class ClientHandler implements Runnable {
             return;
         }
         try {
-            nome = reader.readLine();
-            gestore.impostaNome(nome, MioIndice);
-            VuoleChattareCon = reader.readLine();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        while(!"".equalsIgnoreCase(message)) {
-            try {
-                //legge il next message
-                message = reader.readLine();
-            } catch (IOException e) {
-                e.printStackTrace();
-                break;
-            }
-
-            // Legge il messaggio dal client
-
-/*
-            /*Verifico se il messaggio è valido e rispondo solo in quel caso
-                // Calcola un tempo casuale basato sul numero di client attivi
-                int delay = gestore.get() * 200; // Millisecondi
-                System.out.println("Tempo di attesa per rispondere: " + delay + " ms");
-
-                // Attende per il tempo calcolato
-                attendi(delay);
-
-                // Invia la risposta al client
-                writer.println("World");
-                System.out.println("Risposta inviata al client: World");*/
-
-
-
-        }
-        try {
-            reader.close();
-            writer.close();
+            RiceviDalClient.close();
+            InviaAlClient.close();
         } catch (IOException e) {
         }
         cleanup(MioIndice);
