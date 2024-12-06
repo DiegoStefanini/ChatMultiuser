@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.PriorityQueue;
 import java.util.Scanner;
 import com.google.gson.Gson;
 import data.Packet;
@@ -11,6 +13,7 @@ public class ClientMain {
 
     private static final int MAX_TRY = 3;
     private static String NomeClient = null;
+    private static ArrayList<String> Chats;
     public static void attendi(long ms) {
         try {
             Thread.sleep(ms);
@@ -78,7 +81,7 @@ public class ClientMain {
                             json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
-                            attendi(2000);
+                        //    attendi(2000);
                             tentativi++;
                         }
                         NomeClient = PacketRicevuto.getDestinatario();
@@ -101,22 +104,65 @@ public class ClientMain {
                             json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
-                            attendi(2000);
+                        //    attendi(2000);
                             tentativi++;
                         }
+                        NomeClient = PacketRicevuto.getDestinatario();
                         avanti = true;
                         break;
 
                     case 0:
                         System.out.println("Uscita dal programma.");
-                        avanti = true;
                         break;
 
                     default:
                         System.out.println("Scelta non valida. Inserisci 1, 2 o 0.");
                         break;
                 }
+
+                // richiesta chat dal database
+                Packet DaInviareAlServer = new Packet("CHAT", "", "", "", false);
+                String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                MandaAlServer.println(json);  // mando al server
+
+                json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
+                PacketRicevuto = gson.fromJson(json, Packet.class);
+                System.out.println(PacketRicevuto.getContenuto());
+                String[] Chats = PacketRicevuto.getContenuto().split(",\\s*");
+                if (Chats.length > 0) {
+                    for (int j = 1; j != Chats.length + 1; j++) {
+                        System.out.println(j + " - " + Chats[j - 1] );
+                    }
+                }
+                System.out.println("0 - Cerca utente o crea gruppo");
+                scelta = scanner.nextInt();
+                scanner.nextLine();
+                if (scelta == 0) {
+                    String cerca;
+                    System.out.println("Cerca l'utente con cui vuoi chattare o premi");
+                    System.out.println("1 - Per creare un gruppo");
+                    cerca = scanner.nextLine();
+                    if ("1".equals(cerca)) {
+
+                    } else {
+                        DaInviareAlServer = new Packet("AVVIACHAT", cerca, NomeClient, "", false);
+                        json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                        MandaAlServer.println(json);
+                        json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
+                        PacketRicevuto = gson.fromJson(json, Packet.class);
+                        if (PacketRicevuto.getError()) {
+                            System.out.println(PacketRicevuto.getContenuto());
+                        } else {
+                            System.out.println(PacketRicevuto.getContenuto());
+
+                        }
+                    }
+                }
+               // json = RiceviDalServer.readLine();
+               // PacketRicevuto = gson.fromJson(json, Packet.class);
+
             }
+            link.close();
         } catch (Exception e) {
             // Gestisce eventuali errori
             System.err.println("Errore: " + e.getMessage());

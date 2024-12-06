@@ -3,10 +3,7 @@ package data;
 import java.util.ArrayList;
 
 public class Packet {
-    private String header; // LOGIN, LOGUOT; REGISTRA; SENDMESSAGGIO; CREAGRUPPO; NOTIFICATION;
-    // avevo fatto così per poter mandare un unico pacchetto al server
-    // ma è scomodo, quindi mandiamo piu pacchetti al server per i gruppi
-    // ArrayList<String> destinatario;
+    private String header; // LOGIN, LOGOUT; REGISTRA; AVVIACHAT; SENDMESSAGGIO; CREAGRUPPO; NOTIFICATION; CHAT
     private String destinatario;
     private String mittente;
     private String contenuto;
@@ -18,6 +15,7 @@ public class Packet {
         this.contenuto = c;
         this.errore = e;
     }
+
     public boolean getError() {return errore; }
     public void setErrore(boolean come) {
         this.errore = come;
