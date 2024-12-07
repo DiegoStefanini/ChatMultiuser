@@ -5,7 +5,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.PriorityQueue;
 import java.util.Scanner;
 import com.google.gson.Gson;
 import data.Packet;
@@ -14,13 +13,24 @@ public class ClientMain {
     private static final int MAX_TRY = 3;
     private static String NomeClient = null;
     private static ArrayList<String> Chats;
+    private static Scanner scanner;
     public static void attendi(long ms) {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException _) {
         }
     }
-
+    public static void startSendMessage(String target) {
+        String messaggio = "";
+        Packet DaInviareAlServer;
+        scanner.nextLine();
+        System.out.println("Digita /0 per tornare indietro");
+        System.out.println("Inizia a inviare messaggi a " + target);
+        while (messaggio != "/0") {
+            messaggio = scanner.nextLine();
+            DaInviareAlServer = new Packet("MESSAGE", target, NomeClient, messaggio, false);
+        }
+    }
     public static void main(String[] args) {
         // Configura l'indirizzo IP e la porta del server
         String serverAddress = "127.0.0.1"; // IP del server (localhost)
@@ -50,7 +60,7 @@ public class ClientMain {
             PrintWriter MandaAlServer = new PrintWriter(link.getOutputStream(), true);
             BufferedReader RiceviDalServer = new BufferedReader(new InputStreamReader(link.getInputStream()));
 
-            Scanner scanner = new Scanner(System.in);
+            scanner = new Scanner(System.in);
             boolean avanti = false;
             int scelta;
             while (!avanti) {
@@ -71,9 +81,9 @@ public class ClientMain {
                                 reins = "di nuovo";
                             }
                             // DA AGGIUNGERE "PREMI 0 PER ANDARE INDIETRO" !!!
-                            System.out.println("Inserisci "+reins+" il nome utente: ");
+                            System.out.println("Inserisci " + reins + " il nome utente: ");
                             String nome = scanner.nextLine();
-                            System.out.println("Inserisci "+reins+" la tua password: ");
+                            System.out.println("Inserisci " + reins + " la tua password: ");
                             String password = scanner.nextLine();
                             Packet DaInviareAlServer = new Packet("LOGIN", "", nome, password, false);
                             String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
@@ -81,7 +91,7 @@ public class ClientMain {
                             json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
-                        //    attendi(2000);
+                            //    attendi(2000);
                             tentativi++;
                         }
                         NomeClient = PacketRicevuto.getDestinatario();
@@ -93,9 +103,9 @@ public class ClientMain {
                                 reins = "di nuovo";
                             }
                             // DA AGGIUNGERE "PREMI 0 PER ANDARE INDIETRO" !!!
-                            System.out.println("Inserisci "+reins+" il nome utente: ");
+                            System.out.println("Inserisci " + reins + " il nome utente: ");
                             String nome = scanner.nextLine();
-                            System.out.println("Inserisci "+reins+" la tua password: ");
+                            System.out.println("Inserisci " + reins + " la tua password: ");
                             String password = scanner.nextLine();
                             // DA AGGIUNGERE CONTROLLO SE NON INSERISCE VUOTO !!!
                             Packet DaInviareAlServer = new Packet("REGISTRA", "", nome, password, false);
@@ -104,7 +114,7 @@ public class ClientMain {
                             json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
-                        //    attendi(2000);
+                            //    attendi(2000);
                             tentativi++;
                         }
                         NomeClient = PacketRicevuto.getDestinatario();
@@ -119,48 +129,49 @@ public class ClientMain {
                         System.out.println("Scelta non valida. Inserisci 1, 2 o 0.");
                         break;
                 }
+                boolean continua = true;
+                while (continua) {
+                    // richiesta chat dal database
+                    Packet DaInviareAlServer = new Packet("CHAT", "", "", "", false);
+                    String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
 
-                // richiesta chat dal database
-                Packet DaInviareAlServer = new Packet("CHAT", "", "", "", false);
-                String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
-                MandaAlServer.println(json);  // mando al server
+                    MandaAlServer.println(json);  // mando al server
+                    AttendiRichieste gestoreMenu = new AttendiRichieste(RiceviDalServer);
+                    String[] Chats = gestoreMenu.getMenu("");
+                    Thread RiceviMessaggi = new Thread(gestoreMenu);
+                    RiceviMessaggi.start();
+                    scelta = scanner.nextInt();
+                    if (scelta == 0) {
+                        continua = false;
+                    }else if (scelta == 1) {
+                        String Target;
+                        scanner.nextLine();
+                        System.out.println("Cerca l'utente con cui vuoi chattare o premi");
+                        System.out.println("1 - Per creare un gruppo");
+                        Target = scanner.nextLine();
+                        if ("1".equals(Target)) {
 
-                json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
-                PacketRicevuto = gson.fromJson(json, Packet.class);
-                System.out.println(PacketRicevuto.getContenuto());
-                String[] Chats = PacketRicevuto.getContenuto().split(",\\s*");
-                if (Chats.length > 0) {
-                    for (int j = 1; j != Chats.length + 1; j++) {
-                        System.out.println(j + " - " + Chats[j - 1] );
-                    }
-                }
-                System.out.println("0 - Cerca utente o crea gruppo");
-                scelta = scanner.nextInt();
-                scanner.nextLine();
-                if (scelta == 0) {
-                    String cerca;
-                    System.out.println("Cerca l'utente con cui vuoi chattare o premi");
-                    System.out.println("1 - Per creare un gruppo");
-                    cerca = scanner.nextLine();
-                    if ("1".equals(cerca)) {
-
-                    } else {
-                        DaInviareAlServer = new Packet("AVVIACHAT", cerca, NomeClient, "", false);
-                        json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
-                        MandaAlServer.println(json);
-                        json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
-                        PacketRicevuto = gson.fromJson(json, Packet.class);
-                        if (PacketRicevuto.getError()) {
-                            System.out.println(PacketRicevuto.getContenuto());
                         } else {
-                            System.out.println(PacketRicevuto.getContenuto());
-
+                            DaInviareAlServer = new Packet("AVVIACHAT", Target, NomeClient, "", false);
+                            json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                            MandaAlServer.println(json);
+                            json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
+                            PacketRicevuto = gson.fromJson(json, Packet.class);
+                            if (PacketRicevuto.getError()) {
+                                System.out.println(PacketRicevuto.getContenuto());
+                            } else {  // inizia a chattare
+                                System.out.println(PacketRicevuto.getContenuto());
+                                gestoreMenu.setChat(Target);
+                                startSendMessage(Target);
+                                gestoreMenu.setChat("");
+                            }
                         }
+                    } else { // chatta con ...
+                        gestoreMenu.setChat(Chats[scelta + 2]);
+                        startSendMessage(Chats[scelta + 2]);
+                        gestoreMenu.setChat("");
                     }
                 }
-               // json = RiceviDalServer.readLine();
-               // PacketRicevuto = gson.fromJson(json, Packet.class);
-
             }
             link.close();
         } catch (Exception e) {
@@ -171,3 +182,4 @@ public class ClientMain {
     }
 
 }
+

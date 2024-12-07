@@ -44,8 +44,8 @@ public class ServerMain {
                 // Accetta e aspetta la connessione di un client una nuova connessione dal client
                 Socket client = serverSocket.accept();
                 System.out.println("Nuovo client connesso.");
-                index = gestore.inc(client);
-                Thread handler = new Thread(new ClientHandler(client,gestore, index, connessione));
+
+                Thread handler = new Thread(new ClientHandler(client,gestore,connessione));
                 handler.start();
             }
 

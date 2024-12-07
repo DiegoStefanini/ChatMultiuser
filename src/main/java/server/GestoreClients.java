@@ -1,30 +1,29 @@
 package server;
 
 import java.net.Socket;
+import java.util.HashMap;
+
 
 public class GestoreClients {
-    int i = 0;
-    Socket[] All = new Socket[1000];
-    String[] Nome = new String[1000];
+    HashMap<Socket, String> OnlineUsers = new HashMap<>();
 
-    synchronized int inc(Socket NuovoSocket) {
-        i++;
-        int j = 0;
-        while (All[j] != null) {
-            j++;
-        }
-        All[j] = NuovoSocket;
-        return j;
+    public synchronized void Login(Socket nuovoSocket, String nuovoClient) {
+        OnlineUsers.put(nuovoSocket, nuovoClient);
+        System.out.println("Nuovo client online con ip " + nuovoSocket.getLocalAddress() + " e nome " + nuovoClient );
     }
 
-    synchronized void impostaNome(String n, int dove) {
-        Nome[dove] = n;
-        System.out.println(Nome[dove] + " " + All[dove].getInetAddress());
+    public synchronized void Logout(String nomeDaRimuovere) {
+        OnlineUsers.entrySet().removeIf(entry -> entry.getValue().equals(nomeDaRimuovere));
     }
 
-    synchronized void dec(int index) {
-
-        Nome[index] = null;
-        All[index] = null;
+    public synchronized Socket isOnline(String utente) {
+        return OnlineUsers.entrySet()
+                .stream()
+                .filter(entry -> entry.getValue().equals(utente))
+                .map(entry -> entry.getKey())
+                .findFirst()
+                .orElse(null);
     }
 }
+
+// FATTO DA CHAT GPT NEMMENO DIEGO SA PRECISAMENTE COSA FA, PERò I METODI RESTITUSTITUISCONO QUELLO CHE DICE IL NOME

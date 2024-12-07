@@ -16,23 +16,23 @@ import com.google.gson.Gson;
 class ClientHandler implements Runnable {
     //attributi
     Socket link;
-    GestoreClients gestore;
-    int MioIndice;
+    GestoreClients UtentiOnline;
+    String MioNome;
     Connection connessione;
     int UserID;
-    public ClientHandler(Socket s, GestoreClients v, int z, Connection connessione) {
+    public ClientHandler(Socket s, GestoreClients v, Connection connessione) {
         this.link = s;
-        this.gestore = v;
-        this.MioIndice = z;
+        this.UtentiOnline = v;
         this.connessione = connessione;
     }
 
-    public void cleanup(int index) {
+    public void cleanup(String nome) {
         try {
             link.close();
         } catch (IOException e) {
         }
-        gestore.dec(index);
+        UtentiOnline.Logout(MioNome);
+        // aspetttatatatata gestore.dec(index);
     }
 
     public static void attendi(long ms) {
@@ -94,6 +94,7 @@ class ClientHandler implements Runnable {
             // Esegui la query per recuperare gli id_gruppo
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 boolean first = true; // Indica se siamo al primo elemento, per aggiungere la virgola
+
                 while (resultSet.next()) {
                     int groupId = resultSet.getInt("id_gruppo");
 
@@ -176,7 +177,7 @@ class ClientHandler implements Runnable {
 
 
     private int addUser( String username, String password) {
-        if (getUserID(username) == -1) {
+        if (getUserID(username) != -1) {
             return -1; // L'utente esiste già
         }
 
@@ -276,13 +277,16 @@ class ClientHandler implements Runnable {
                         PacketDaInviare = new Packet("NOTIFICATION", "","", "L'utente che hai scelto esiste già", true);
                     } else {
                         PacketDaInviare = new Packet("NOTIFICATION", "","", "Utente creato con successo", false);
+                        MioNome = PacketRicevuto.getMittente();
+                        UtentiOnline.Login(link, PacketRicevuto.getMittente());
                     }
-
                 } else if ("LOGIN".equals(PacketRicevuto.getHeader())) {
                     if ((UserID = checkCredenziali(PacketRicevuto.getMittente(), PacketRicevuto.getContenuto())) == -1) {
                         PacketDaInviare = new Packet("NOTIFICATION", "","", "Le credenziali non sono corrette", true);
                     } else {
                         PacketDaInviare = new Packet("NOTIFICATION", "","", "Hai effettuato l'accesso !", false);
+                        MioNome = PacketRicevuto.getMittente();
+                        UtentiOnline.Login(link, PacketRicevuto.getMittente());
                     }
                 } else if ("CHAT".equals(PacketRicevuto.getHeader())) {
                     PacketDaInviare = new Packet("CHAT", "", "", getChat(), false );
@@ -293,15 +297,28 @@ class ClientHandler implements Runnable {
                     } else {
                         PacketDaInviare = new Packet("AVVIACHAT", "", "", "L'utente che hai cercato non esiste", true);
                     }
+                } else if ("MESSAGGIO".equals(PacketRicevuto.getHeader())) {
+                    try (Socket SocketDestinatario = UtentiOnline.isOnline(PacketRicevuto.getDestinatario())) {
+                        if (SocketDestinatario != null) { // vuol dire che non è online
+                            // DA AGGIORNARE DATABASE
+                        } else {
+                            PrintWriter InviaAlDestinatario = new PrintWriter(SocketDestinatario.getOutputStream(), true);
+                            json = gson.toJson(InviaAlDestinatario);
+                            InviaAlDestinatario.println(json);
+                            // DA AGGIORNARE DATABASE
+                        }
+                    }
                 }
-                json = gson.toJson(PacketDaInviare);
-                System.out.println(json);
-                InviaAlClient.println(json);
+                if (PacketDaInviare != null) {
+                    json = gson.toJson(PacketDaInviare);
+                    InviaAlClient.println(json);
+                }
             }
+            cleanup(MioNome);
         }catch(IOException ex) {
             ex.printStackTrace();
             System.out.println("Client died too early, cleaning up the mess!");
-            cleanup(MioIndice);
+            cleanup(MioNome);
             return;
         }
         try {
@@ -309,7 +326,6 @@ class ClientHandler implements Runnable {
             InviaAlClient.close();
         } catch (IOException e) {
         }
-        cleanup(MioIndice);
-
+        cleanup(MioNome);
     }
 }
