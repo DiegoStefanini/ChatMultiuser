@@ -14,6 +14,9 @@ public class ClientMain {
     private static String NomeClient = null;
     private static ArrayList<String> Chats;
     private static Scanner scanner;
+    private static PrintWriter MandaAlServer;
+    private static BufferedReader RiceviDalServer;
+    private static Gson gson;
     public static void attendi(long ms) {
         try {
             Thread.sleep(ms);
@@ -28,7 +31,9 @@ public class ClientMain {
         System.out.println("Inizia a inviare messaggi a " + target);
         while (messaggio != "/0") {
             messaggio = scanner.nextLine();
-            DaInviareAlServer = new Packet("MESSAGE", target, NomeClient, messaggio, false);
+            DaInviareAlServer = new Packet("MESSAGGIO", target, NomeClient, messaggio, false);
+            String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+            MandaAlServer.println(json);
         }
     }
     public static void main(String[] args) {
@@ -36,7 +41,7 @@ public class ClientMain {
         String serverAddress = "127.0.0.1"; // IP del server (localhost)
         int port = 12345; // Porta del server
         Socket link = null;
-        Gson gson = new Gson(); // String json = gson.toJson(packet); Packet deserializedPacket = gson.fromJson(json, Packet.class)
+        gson = new Gson(); // String json = gson.toJson(packet); Packet deserializedPacket = gson.fromJson(json, Packet.class)
 
         int i = 0;
         while( link == null && i < MAX_TRY ) {
@@ -57,8 +62,8 @@ public class ClientMain {
         }
 
         try {
-            PrintWriter MandaAlServer = new PrintWriter(link.getOutputStream(), true);
-            BufferedReader RiceviDalServer = new BufferedReader(new InputStreamReader(link.getInputStream()));
+            MandaAlServer = new PrintWriter(link.getOutputStream(), true);
+            RiceviDalServer = new BufferedReader(new InputStreamReader(link.getInputStream()));
 
             scanner = new Scanner(System.in);
             boolean avanti = false;
@@ -91,10 +96,10 @@ public class ClientMain {
                             json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
+                            NomeClient = nome;
                             //    attendi(2000);
                             tentativi++;
                         }
-                        NomeClient = PacketRicevuto.getDestinatario();
                         avanti = true;
                         break;
                     case 2:
@@ -114,10 +119,10 @@ public class ClientMain {
                             json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
                             PacketRicevuto = gson.fromJson(json, Packet.class);
                             System.out.println(PacketRicevuto.getContenuto());
+                            NomeClient = nome;
                             //    attendi(2000);
                             tentativi++;
                         }
-                        NomeClient = PacketRicevuto.getDestinatario();
                         avanti = true;
                         break;
 
@@ -130,45 +135,61 @@ public class ClientMain {
                         break;
                 }
                 boolean continua = true;
-                while (continua) {
-                    // richiesta chat dal database
-                    Packet DaInviareAlServer = new Packet("CHAT", "", "", "", false);
-                    String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                AttendiRichieste gestoreMenu = new AttendiRichieste(RiceviDalServer, MandaAlServer);
 
-                    MandaAlServer.println(json);  // mando al server
-                    AttendiRichieste gestoreMenu = new AttendiRichieste(RiceviDalServer);
+                Thread RiceviMessaggi = new Thread(gestoreMenu);
+                RiceviMessaggi.start();
+                while (continua) {
                     String[] Chats = gestoreMenu.getMenu("");
-                    Thread RiceviMessaggi = new Thread(gestoreMenu);
-                    RiceviMessaggi.start();
                     scelta = scanner.nextInt();
                     if (scelta == 0) {
                         continua = false;
                     }else if (scelta == 1) {
                         String Target;
                         scanner.nextLine();
-                        System.out.println("Cerca l'utente con cui vuoi chattare o premi");
-                        System.out.println("1 - Per creare un gruppo");
-                        Target = scanner.nextLine();
-                        if ("1".equals(Target)) {
-
-                        } else {
-                            DaInviareAlServer = new Packet("AVVIACHAT", Target, NomeClient, "", false);
-                            json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
-                            MandaAlServer.println(json);
-                            json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
-                            PacketRicevuto = gson.fromJson(json, Packet.class);
-                            if (PacketRicevuto.getError()) {
-                                System.out.println(PacketRicevuto.getContenuto());
-                            } else {  // inizia a chattare
-                                System.out.println(PacketRicevuto.getContenuto());
-                                gestoreMenu.setChat(Target);
-                                startSendMessage(Target);
-                                gestoreMenu.setChat("");
+                        boolean CicloCercaUtente = true;
+                        while (CicloCercaUtente) {
+                            System.out.println("Cerca l'utente con cui vuoi chattare o premi");
+                            System.out.println("/1 - Per creare un gruppo");
+                            System.out.println("/0 - Per tornare indietro");
+                            Target = scanner.nextLine();
+                            if ("/0".equals(Target)) {
+                                CicloCercaUtente = false;
+                                System.out.println("check1");
+                            } else if ("/1".equals(Target)) {
+                                // DA FARE: INIZIA A CREARE UN GRUPPO
+                            } else {
+                                boolean esisteGia = false;
+                                for (int j = 0; j < Chats.length; j++) {
+                                    if (Chats[j].equals(Target)) {
+                                        esisteGia = true;
+                                    }
+                                }
+                                if (!esisteGia) {
+                                    Packet DaInviareAlServer;
+                                    String json;
+                                    DaInviareAlServer = new Packet("AVVIACHAT", Target, NomeClient, "", false);
+                                    json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                                    MandaAlServer.println(json);
+                                    json = RiceviDalServer.readLine(); // ASPETTO CHE MI RISPONDA COME è ANDATA LA REGISTRAZIONE
+                                    PacketRicevuto = gson.fromJson(json, Packet.class);
+                                    if (PacketRicevuto.getError()) {
+                                        System.out.println(PacketRicevuto.getContenuto());
+                                    } else {  // inizia a chattare
+                                        System.out.println(PacketRicevuto.getContenuto());
+                                        gestoreMenu.setChat(Target);
+                                        startSendMessage(Target);
+                                        gestoreMenu.setChat("");
+                                        CicloCercaUtente = false;
+                                    }
+                                } else {
+                                    System.out.println("Hai già una chat avviata con questo utente !");
+                                }
                             }
                         }
                     } else { // chatta con ...
-                        gestoreMenu.setChat(Chats[scelta + 2]);
-                        startSendMessage(Chats[scelta + 2]);
+                        gestoreMenu.setChat(Chats[scelta - 2]);
+                        startSendMessage(Chats[scelta - 2]);
                         gestoreMenu.setChat("");
                     }
                 }

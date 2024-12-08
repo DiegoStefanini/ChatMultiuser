@@ -256,7 +256,23 @@ class ClientHandler implements Runnable {
             return -1;
         }
     }
-
+    private void InserisciMessaggio(String mittente, String destinatario, String contenuto) {
+        String query = "INSERT INTO messaggi (mittente, destinatario, contenuto) VALUES (?, ?, ?)";
+        try (PreparedStatement preparedStatement = connessione.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+            preparedStatement.setInt(1, getUserID(mittente));
+            preparedStatement.setInt(2, getUserID(destinatario));
+            preparedStatement.setString(3, contenuto);
+            int rowsInserted = preparedStatement.executeUpdate();
+            if (rowsInserted > 0) {
+                System.out.println("Messaggio tra " +mittente+" e "+destinatario+" inserito");
+            } else {
+                System.out.println("Nessuna riga inserita.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Errore durante l'inserimento del messaggio!");
+            e.printStackTrace();
+        }
+    }
 
     public void run() {
         BufferedReader RiceviDalClient;
@@ -290,6 +306,7 @@ class ClientHandler implements Runnable {
                     }
                 } else if ("CHAT".equals(PacketRicevuto.getHeader())) {
                     PacketDaInviare = new Packet("CHAT", "", "", getChat(), false );
+                    System.out.println("CHAT mandato");
                 } else if ("AVVIACHAT".equals(PacketRicevuto.getHeader())) {
                     int ChatID = startChat(PacketRicevuto.getDestinatario());
                     if (ChatID != -1) {
@@ -299,14 +316,14 @@ class ClientHandler implements Runnable {
                     }
                 } else if ("MESSAGGIO".equals(PacketRicevuto.getHeader())) {
                     try (Socket SocketDestinatario = UtentiOnline.isOnline(PacketRicevuto.getDestinatario())) {
-                        if (SocketDestinatario != null) { // vuol dire che non è online
+                        if (SocketDestinatario != null) { // vuol dire che  è online
                             // DA AGGIORNARE DATABASE
-                        } else {
                             PrintWriter InviaAlDestinatario = new PrintWriter(SocketDestinatario.getOutputStream(), true);
                             json = gson.toJson(InviaAlDestinatario);
                             InviaAlDestinatario.println(json);
                             // DA AGGIORNARE DATABASE
                         }
+                        InserisciMessaggio(PacketRicevuto.getMittente(), PacketRicevuto.getDestinatario(), PacketRicevuto.getContenuto());
                     }
                 }
                 if (PacketDaInviare != null) {
@@ -317,7 +334,7 @@ class ClientHandler implements Runnable {
             cleanup(MioNome);
         }catch(IOException ex) {
             ex.printStackTrace();
-            System.out.println("Client died too early, cleaning up the mess!");
+            System.out.println("Client non sloggato correttamente...");
             cleanup(MioNome);
             return;
         }
