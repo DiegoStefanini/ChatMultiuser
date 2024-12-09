@@ -15,11 +15,11 @@ import com.google.gson.Gson;
 
 class ClientHandler implements Runnable {
     //attributi
-    Socket link;
-    GestoreClients UtentiOnline;
-    String MioNome;
-    Connection connessione;
-    int UserID;
+    private Socket link;
+    private GestoreClients UtentiOnline;
+    private String MioNome;
+    private Connection connessione;
+    private int UserID;
     public ClientHandler(Socket s, GestoreClients v, Connection connessione) {
         this.link = s;
         this.UtentiOnline = v;
@@ -35,7 +35,7 @@ class ClientHandler implements Runnable {
         // aspetttatatatata gestore.dec(index);
     }
 
-    public static void attendi(long ms) {
+    public void attendi(long ms) {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException _) {
@@ -315,15 +315,20 @@ class ClientHandler implements Runnable {
                         PacketDaInviare = new Packet("AVVIACHAT", "", "", "L'utente che hai cercato non esiste", true);
                     }
                 } else if ("MESSAGGIO".equals(PacketRicevuto.getHeader())) {
-                    try (Socket SocketDestinatario = UtentiOnline.isOnline(PacketRicevuto.getDestinatario())) {
-                        if (SocketDestinatario != null) { // vuol dire che  è online
+                    try {
+                        Socket SocketDestinatario = UtentiOnline.isOnline(PacketRicevuto.getDestinatario());
+                        if (SocketDestinatario != null) { // vuol dire che è online
                             // DA AGGIORNARE DATABASE
+                            PacketDaInviare = new Packet("MESSAGGIO", PacketRicevuto.getDestinatario(), PacketRicevuto.getMittente(), PacketRicevuto.getContenuto(), false );
                             PrintWriter InviaAlDestinatario = new PrintWriter(SocketDestinatario.getOutputStream(), true);
-                            json = gson.toJson(InviaAlDestinatario);
+                            json = gson.toJson(PacketDaInviare);
                             InviaAlDestinatario.println(json);
-                            // DA AGGIORNARE DATABASE
+                        } else {
+                            System.out.println("non online");
                         }
                         InserisciMessaggio(PacketRicevuto.getMittente(), PacketRicevuto.getDestinatario(), PacketRicevuto.getContenuto());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
                 }
                 if (PacketDaInviare != null) {

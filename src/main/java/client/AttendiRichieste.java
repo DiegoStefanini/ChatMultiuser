@@ -78,7 +78,7 @@ public class AttendiRichieste implements Runnable {
                     json = RiceviDalServer.readLine();
                     PacketRicevuto = gson.fromJson(json, Packet.class);
                     if ("MESSAGGIO".equals(PacketRicevuto.getHeader())) {
-                        if (inChat.equals(PacketRicevuto.getDestinatario())) {
+                        if (inChat.equals(PacketRicevuto.getMittente())) {
                             System.out.println(PacketRicevuto.getMittente() + ": " + PacketRicevuto.getContenuto());
                         } else if (inChat.equals("")) {
                             cleenup();

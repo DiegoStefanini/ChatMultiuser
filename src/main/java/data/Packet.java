@@ -3,7 +3,7 @@ package data;
 import java.util.ArrayList;
 
 public class Packet {
-    private String header; // LOGIN, LOGOUT; REGISTRA; AVVIACHAT; SENDMESSAGGIO; CREAGRUPPO; NOTIFICATION; CHAT
+    private String header; // LOGIN, LOGOUT; REGISTRA; AVVIACHAT; MESSAGGIO; CREAGRUPPO; NOTIFICATION; CHAT
     private String destinatario;
     private String mittente;
     private String contenuto;
