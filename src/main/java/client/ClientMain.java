@@ -29,11 +29,13 @@ public class ClientMain {
         scanner.nextLine();
         System.out.println("Digita /0 per tornare indietro");
         System.out.println("Inizia a inviare messaggi a " + target);
-        while (messaggio != "/0") {
+        while (!messaggio.equals("/0")) {
             messaggio = scanner.nextLine();
-            DaInviareAlServer = new Packet("MESSAGGIO", target, NomeClient, messaggio, false);
-            String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
-            MandaAlServer.println(json);
+            if (!messaggio.equals("/0")) {
+                DaInviareAlServer = new Packet("MESSAGGIO", target, NomeClient, messaggio, false);
+                String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
+                MandaAlServer.println(json);
+            }
         }
     }
     public static void main(String[] args) {
