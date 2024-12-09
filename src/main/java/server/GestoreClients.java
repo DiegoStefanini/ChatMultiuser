@@ -9,7 +9,7 @@ public class GestoreClients {
 
     public synchronized void Login(Socket nuovoSocket, String nuovoClient) {
         OnlineUsers.put(nuovoSocket, nuovoClient);
-        System.out.println("Nuovo client online con ip " + nuovoSocket.getLocalAddress() + " e nome " + nuovoClient );
+        System.out.println("Nuovo client online con ip " + nuovoSocket.getInetAddress() + " e nome " + nuovoClient );
     }
 
     public synchronized void Logout(String nomeDaRimuovere) {

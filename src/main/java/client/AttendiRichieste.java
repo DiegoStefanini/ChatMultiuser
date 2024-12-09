@@ -10,54 +10,66 @@ import java.util.ArrayList;
 import com.google.gson.Gson;
 
 public class AttendiRichieste implements Runnable {
-    private static BufferedReader RiceviDalServer;
-    private static PrintWriter MandaAlServer;
+    private BufferedReader riceviDalServer;
+    private PrintWriter mandaAlServer;
     private static Gson gson = new Gson();
-    private static String inChat = "";
-    private static ArrayList<Integer> NuoviMessaggi = new ArrayList<>();
-    private static boolean InAttesa = false;
+    private volatile String inChat = "";
+    private ArrayList<Integer> nuoviMessaggi = new ArrayList<>();
+    private volatile boolean inAttesa = false;
+    private volatile boolean running = true;
+
     public AttendiRichieste(BufferedReader ricevi, PrintWriter manda) {
-        RiceviDalServer = ricevi;
-        MandaAlServer = manda;
+        this.riceviDalServer = ricevi;
+        this.mandaAlServer = manda;
     }
+
+    public void stop() {
+        running = false;
+    }
+
     public static void cleenup() {
-        System.out.print("\033[H\033[2J");
-        System.out.flush();
+        for (int i = 0; i < 50; i++) {
+            System.out.println();
+        }
     }
-    public static String[] getMenu(String newMessage) {
+
+    public String[] getMenu(String newMessage) {
         try {
-            InAttesa = false;
-            Packet DaInviareAlServer = new Packet("CHAT", "", "", "", false);
-            String json = gson.toJson(DaInviareAlServer); // converto il pacchetto in json
-            MandaAlServer.println(json);
-            json = RiceviDalServer.readLine();
+            inAttesa = false;
+            Packet daInviareAlServer = new Packet("CHAT", "", "", "", false);
+            String json = gson.toJson(daInviareAlServer); // converto il pacchetto in JSON
+            mandaAlServer.println(json);
+            json = riceviDalServer.readLine();
+
             if (json == null) {
                 throw new IOException("Connessione terminata dal server.");
             }
+
             Packet packetRicevuto = gson.fromJson(json, Packet.class);
             String[] chats = packetRicevuto.getContenuto().split(",\\s*");
             System.out.println("0 - Termina il programma");
             System.out.println("1 - Cerca utente o crea gruppo");
 
-            if (chats.length > 0) {
-                // Inizializzare la lista NuoviMessaggi per allinearla alla lunghezza di chats
-                while (NuoviMessaggi.size() < chats.length) {
-                    NuoviMessaggi.add(0); // Aggiunge contatori iniziali pari a 0
-                }
-
-                for (int j = 0; j < chats.length; j++) {
-                    if (newMessage.equals(chats[j])) {
-                        NuoviMessaggi.set(j, NuoviMessaggi.get(j) + 1);
-                    }
-
-                    String messaggiNonLetti = (NuoviMessaggi.get(j) > 0)
-                            ? "[" + NuoviMessaggi.get(j) + "]"
-                            : "";
-                    System.out.println((j + 2) + " - " + chats[j] + " " + messaggiNonLetti);
-                }
+            // Sincronizza la lista nuoviMessaggi con chats
+            while (nuoviMessaggi.size() < chats.length) {
+                nuoviMessaggi.add(0);
             }
-            InAttesa = true;
+            if (nuoviMessaggi.size() > chats.length) {
+                nuoviMessaggi = new ArrayList<>(nuoviMessaggi.subList(0, chats.length));
+            }
 
+            for (int j = 0; j < chats.length; j++) {
+                if (newMessage.equals(chats[j])) {
+                    nuoviMessaggi.set(j, nuoviMessaggi.get(j) + 1);
+                }
+
+                String messaggiNonLetti = (nuoviMessaggi.get(j) > 0)
+                        ? "[" + nuoviMessaggi.get(j) + "]"
+                        : "";
+                System.out.println((j + 2) + " - " + chats[j] + " " + messaggiNonLetti);
+            }
+
+            inAttesa = true;
             return chats;
         } catch (IOException e) {
             System.err.println("Errore durante la ricezione del menu: " + e.getMessage());
@@ -65,37 +77,47 @@ public class AttendiRichieste implements Runnable {
         }
     }
 
-    public static void setChat(String chi) {
+    public void setChat(String chi) {
         inChat = chi;
     }
+
+    @Override
     public void run() {
-
         String json;
-        Packet PacketRicevuto;
-        //System.out.println("startato" + InAttesa);
-        while (true) {
-            try {
-              //  System.out.println("while " + InAttesa);
+        Packet packetRicevuto;
 
-                if (InAttesa) {
-                  //   System.out.println("dai");
-                    json = RiceviDalServer.readLine();
-                    //   System.out.println("ok");
-                    PacketRicevuto = gson.fromJson(json, Packet.class);
-                    if ("MESSAGGIO".equals(PacketRicevuto.getHeader())) {
-                     //   System.out.println("ok1");
-                        if (inChat.equals(PacketRicevuto.getMittente())) {
-                      //      System.out.println("ok2");
-                            System.out.println(PacketRicevuto.getMittente() + ": " + PacketRicevuto.getContenuto());
+        while (running) {
+            try {
+                if (inAttesa) {
+                    json = riceviDalServer.readLine();
+
+                    if (json == null) {
+                        System.err.println("Connessione interrotta dal server.");
+                        break;
+                    }
+
+                    try {
+                        packetRicevuto = gson.fromJson(json, Packet.class);
+                    } catch (Exception e) {
+                        System.err.println("Errore nel parsing del JSON: " + e.getMessage());
+                        continue;
+                    }
+
+                    if ("MESSAGGIO".equals(packetRicevuto.getHeader())) {
+                        if (inChat.equals(packetRicevuto.getMittente())) {
+                            System.out.println(packetRicevuto.getMittente() + ": " + packetRicevuto.getContenuto());
                         } else if (inChat.equals("")) {
-                       //     System.out.println("ok3");
                             cleenup();
-                            getMenu(PacketRicevuto.getMittente());
+                            getMenu(packetRicevuto.getMittente());
                         }
                     }
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                System.err.println("Errore di I/O: " + e.getMessage());
+                break;
+            } catch (Exception e) {
+                System.err.println("Errore generico: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
