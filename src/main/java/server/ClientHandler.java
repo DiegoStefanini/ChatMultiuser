@@ -323,6 +323,7 @@ class ClientHandler implements Runnable {
                             PrintWriter InviaAlDestinatario = new PrintWriter(SocketDestinatario.getOutputStream(), true);
                             json = gson.toJson(PacketDaInviare);
                             InviaAlDestinatario.println(json);
+                            System.out.println("Online. Inviato correttamente");
                         } else {
                             System.out.println("non online");
                         }

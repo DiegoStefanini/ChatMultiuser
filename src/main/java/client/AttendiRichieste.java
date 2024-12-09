@@ -15,7 +15,7 @@ public class AttendiRichieste implements Runnable {
     private static Gson gson = new Gson();
     private static String inChat = "";
     private static ArrayList<Integer> NuoviMessaggi = new ArrayList<>();
-    private static boolean InAttesa = true;
+    private static boolean InAttesa = false;
     public AttendiRichieste(BufferedReader ricevi, PrintWriter manda) {
         RiceviDalServer = ricevi;
         MandaAlServer = manda;
@@ -72,15 +72,23 @@ public class AttendiRichieste implements Runnable {
 
         String json;
         Packet PacketRicevuto;
+        //System.out.println("startato" + InAttesa);
         while (true) {
             try {
+              //  System.out.println("while " + InAttesa);
+
                 if (InAttesa) {
+                  //   System.out.println("dai");
                     json = RiceviDalServer.readLine();
+                    //   System.out.println("ok");
                     PacketRicevuto = gson.fromJson(json, Packet.class);
                     if ("MESSAGGIO".equals(PacketRicevuto.getHeader())) {
+                     //   System.out.println("ok1");
                         if (inChat.equals(PacketRicevuto.getMittente())) {
+                      //      System.out.println("ok2");
                             System.out.println(PacketRicevuto.getMittente() + ": " + PacketRicevuto.getContenuto());
                         } else if (inChat.equals("")) {
+                       //     System.out.println("ok3");
                             cleenup();
                             getMenu(PacketRicevuto.getMittente());
                         }
