@@ -23,10 +23,6 @@ public class AttendiRichieste implements Runnable {
         this.mandaAlServer = manda;
     }
 
-    public void stop() {
-        running = false;
-    }
-
     public static void cleenup() {
         for (int i = 0; i < 50; i++) {
             System.out.println();
